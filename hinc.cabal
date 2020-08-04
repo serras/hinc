@@ -21,7 +21,18 @@ library
   default-language:    Haskell2010
 
 executable hinc
+  if impl(ghcjs)
+    buildable: False
   main-is:             Main.hs
   build-depends:       base >=4.12 && <5, hinc
   hs-source-dirs:      exe
+  default-language:    Haskell2010
+
+executable hincweb
+  if !impl(ghcjs)
+    buildable: False
+  main-is:             Main.hs
+  ghcjs-options:       -dedupe
+  build-depends:       base >=4.12 && <5, hinc, miso
+  hs-source-dirs:      web
   default-language:    Haskell2010
