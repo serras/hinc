@@ -2,6 +2,7 @@
 {-# language OverloadedStrings #-}
 module Hinc.Parser where
 
+import           Data.List                    (intercalate)
 import           Data.Maybe                   (fromMaybe)
 import qualified Data.Text                    as T
 import           Data.Void
@@ -53,7 +54,7 @@ litP = Hs.Ident () <$> lexeme ((:) <$> upper <*> many anyChar)
 nameP = varP <|> litP
 
 modNameP :: Parser (Hs.ModuleName ())
-modNameP = Hs.ModuleName () . concat
+modNameP = Hs.ModuleName () . intercalate "."
              <$> ((\(Hs.Ident _ i) -> i) <$> litP) `sepBy1` single '.'
 
 qnameP :: Parser (Hs.Name ()) -> Parser (Hs.QName ())
@@ -63,6 +64,15 @@ qnameP r =   Hs.Qual   () <$> brackets modNameP <*> r
 -- EXPRESSIONS
 -- ===========
 
+argP :: Parser (Hs.Name (), Maybe (Hs.Type ()))
+argP = (,) <$> varP <*> optional (colon >> typeP)
+
+argPPat :: Parser (Hs.Pat ())
+argPPat = f <$> argP
+  where
+    f (nm, Nothing) = Hs.PVar () nm
+    f (nm, Just ty) = Hs.PatTypeSig () (Hs.PVar () nm) ty
+
 exprP :: Parser (Hs.Exp ())
 exprP =   Hs.If () <$ symbol "if" <*> parens exprP
                    <*> exprP <* symbol "else" <*> exprP
@@ -70,46 +80,12 @@ exprP =   Hs.If () <$ symbol "if" <*> parens exprP
                    <*> braces (many stmtP)
       <|> braces (Hs.Let () <$> bindsP <*> exprP)
       <|> brackets (Hs.List () <$> exprP `sepBy` comma)
+      <|> try (Hs.Lambda () <$> (fromMaybe [] <$> optional (parens (argPPat `sepBy` comma)))
+                            <*  arrow
+                            <*> exprP)
       <|> Hs.Lit () <$> literalP
       <|> Hs.Var () <$> qnameP varP
       <|> Hs.Con () <$> qnameP litP
-
-bindsP :: Parser (Hs.Binds ())
-bindsP = Hs.BDecls () . concat <$> some letBindP
-
-letBindP :: Parser [Hs.Decl ()]
-letBindP = putTogether <$  symbol "let"
-                       <*> varP
-                       <*> (fromMaybe [] <$> optional (angles (tyvarbindP `sepBy` comma)))
-                       <*> (fromMaybe [] <$> optional (parens (argP `sepBy` comma)))
-                       <*> optional (colon >> typeP)
-                       <*> optional contextP
-                       <*  symbol "="
-                       <*> exprP
-  where
-    argP = (,) <$> varP <*> optional (colon >> typeP)
-
-    putTogether :: Hs.Name () -> [Hs.TyVarBind ()]
-                -> [(Hs.Name (), Maybe (Hs.Type ()))]
-                -> Maybe (Hs.Type ()) -> Maybe (Hs.Context ())
-                -> Hs.Exp () -> [Hs.Decl ()]
-    putTogether fname tyvars args result ctx body
-      = [ Hs.TypeSig () [fname] (recreateTy tyvars ctx (map snd args) result)
-        , Hs.FunBind () [ Hs.Match () fname (map (Hs.PVar () . fst) args)
-                                   (Hs.UnGuardedRhs () body) Nothing ] ]
-
-    recreateTy :: [Hs.TyVarBind ()] -> Maybe (Hs.Context ())
-               -> [Maybe (Hs.Type ())] -> Maybe (Hs.Type ())
-               -> Hs.Type ()
-    recreateTy [] Nothing args res = recreateTy2 args res
-    recreateTy vars ctx   args res = Hs.TyForall () (Just vars) ctx (recreateTy2 args res)
-
-    recreateTy2 :: [Maybe (Hs.Type ())]
-                -> Maybe (Hs.Type ()) -> Hs.Type ()
-    recreateTy2 [] Nothing       = Hs.TyWildCard () Nothing
-    recreateTy2 [] (Just r)      = r
-    recreateTy2 (Nothing : as) r = Hs.TyFun () (Hs.TyWildCard () Nothing) (recreateTy2 as r)
-    recreateTy2 (Just a  : as) r = Hs.TyFun () a (recreateTy2 as r)
 
 stmtP :: Parser (Hs.Stmt ())
 stmtP =   try (Hs.Generator () <$  symbol "let"
@@ -162,10 +138,10 @@ typeP :: Parser (Hs.Type ())
 typeP
   =   try (tyFun <$> parens (typeP `sepBy` comma) <* arrow <*> typeP)
   <|> try (parens (Hs.TyKind () <$> typeP <* colon <*> typeP))
-  <|> try (parens ((\vars ty ctx -> Hs.TyForall () vars ctx ty)
+  <|> try ((\vars ty ctx -> Hs.TyForall () vars ctx ty)
                      <$> (Just <$> angles (tyvarbindP `sepBy` comma))
                      <*> typeP
-                     <*> optional contextP))
+                     <*> optional contextP)
   <|> Hs.TyStar () <$ symbol "Type"
   <|> Hs.TyList () <$ symbol "List" <*> angles typeP
   <|> tyNormal <$> tyHead
@@ -180,3 +156,64 @@ typeP
     tyNormal ty (a:as) rs = tyNormal (Hs.TyApp () ty a) as rs
     tyNormal ty [] (r:rs) = tyNormal (Hs.TyApp () ty r) [] rs
     tyNormal ty [] []     = ty
+
+-- DECLARATIONS AND BINDS
+-- ======================
+
+bindsP :: Parser (Hs.Binds ())
+bindsP = Hs.BDecls () <$> declsP
+
+declsP :: Parser [Hs.Decl ()]
+declsP = concat <$> some letBindP
+
+letBindP :: Parser [Hs.Decl ()]
+letBindP = putTogether <$  symbol "let"
+                       <*> varP
+                       <*> (fromMaybe [] <$> optional (angles (tyvarbindP `sepBy` comma)))
+                       <*> (fromMaybe [] <$> optional (parens (argP `sepBy` comma)))
+                       <*> optional (colon >> typeP)
+                       <*> optional contextP
+                       <*  symbol "="
+                       <*> exprP
+  where
+    putTogether :: Hs.Name () -> [Hs.TyVarBind ()]
+                -> [(Hs.Name (), Maybe (Hs.Type ()))]
+                -> Maybe (Hs.Type ()) -> Maybe (Hs.Context ())
+                -> Hs.Exp () -> [Hs.Decl ()]
+    putTogether fname tyvars args result ctx body
+      = [ Hs.TypeSig () [fname] (recreateTy tyvars ctx (map snd args) result)
+        , Hs.FunBind () [ Hs.Match () fname (map (Hs.PVar () . fst) args)
+                                   (Hs.UnGuardedRhs () body) Nothing ] ]
+
+    recreateTy :: [Hs.TyVarBind ()] -> Maybe (Hs.Context ())
+               -> [Maybe (Hs.Type ())] -> Maybe (Hs.Type ())
+               -> Hs.Type ()
+    recreateTy [] Nothing args res = recreateTy2 args res
+    recreateTy vars ctx   args res = Hs.TyForall () (Just vars) ctx (recreateTy2 args res)
+
+    recreateTy2 :: [Maybe (Hs.Type ())]
+                -> Maybe (Hs.Type ()) -> Hs.Type ()
+    recreateTy2 [] Nothing       = Hs.TyWildCard () Nothing
+    recreateTy2 [] (Just r)      = r
+    recreateTy2 (Nothing : as) r = Hs.TyFun () (Hs.TyWildCard () Nothing) (recreateTy2 as r)
+    recreateTy2 (Just a  : as) r = Hs.TyFun () a (recreateTy2 as r)
+
+
+-- MODULES
+-- =======
+
+moduleHeadP :: Parser (Hs.ModuleHead ())
+moduleHeadP = Hs.ModuleHead () <$  symbol "module"
+                               <*> modNameP
+                               <*> pure Nothing
+                               <*> pure Nothing  -- TODO: export list
+
+modulePragmaP :: Parser (Hs.ModulePragma ())
+modulePragmaP = Hs.LanguagePragma () <$  symbol "use"
+                                     <*> litP `sepBy1` comma
+
+moduleP :: Parser (Hs.Module ())
+moduleP = flip (Hs.Module ()) <$> many modulePragmaP
+                              <*> (Just <$> moduleHeadP)
+                              <*> pure [] -- TODO: import list
+                              <*> declsP
