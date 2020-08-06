@@ -15,8 +15,8 @@ build-type:          Simple
 library
   exposed-modules:     Hinc.Parser
   build-depends:       base >=4.12 && <5, text,
-                       megaparsec,
-                       haskell-src-exts
+                       megaparsec >= 7,
+                       haskell-src-exts >= 1.23 && < 1.24
   hs-source-dirs:      src
   default-language:    Haskell2010
 
@@ -33,6 +33,9 @@ executable hincweb
     buildable: False
   main-is:             Main.hs
   ghcjs-options:       -dedupe
-  build-depends:       base >=4.12 && <5, hinc, miso
+  build-depends:       base >=4.12 && <5, text,
+                       megaparsec >= 7,
+                       haskell-src-exts >= 1.23 && < 1.24,
+                       hinc, miso
   hs-source-dirs:      web
   default-language:    Haskell2010

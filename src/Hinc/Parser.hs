@@ -110,7 +110,8 @@ literalP =   lexeme ((\c -> Hs.Char () c ("'" <> [c] <> "'"))
 -- ==================
 
 assertionP :: Parser (Hs.Asst ())
-assertionP = asstNormal <$> parens (typeP `sepBy` comma) <* colon <*> tyHead
+assertionP =   asstNormal <$> parens (typeP `sepBy` comma) <* colon <*> tyHead
+           <|> asstNormal <$> ((: []) <$> typeP) <* colon <*> tyHead
   where
     asstNormal :: [Hs.Type ()] -> Hs.Type () -> Hs.Asst ()
     asstNormal []     ty = Hs.TypeA () ty
