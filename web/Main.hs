@@ -13,14 +13,21 @@ import           Text.Megaparsec
 main :: IO ()
 main = startApp App {..}
   where
-    initialAction = ChangeCurrentText ""
-    model  = Model "" ""
+    initialAction = Translate
+    model  = Model (toMisoString initialCode) ""
     update = updateModel
     view   = viewModel
     events = defaultEvents
     subs   = []
     mountPoint = Nothing
     logLevel = Off
+
+initialCode = unlines [
+    "let f(x: Int, t: Bool): List<a> = {"
+  , "  let v = x"
+  , "  v"
+  , "}"
+  ]
 
 data Model = Model {
   currentText :: JSString
