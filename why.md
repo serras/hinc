@@ -16,7 +16,7 @@ let mapM(f: (a) => m<b>, lst: List<a>): m<List<b>> where m : Effect
     }
 ```
 
-Are you horrified? Maybe you are wondering whether I've cross the blurry line between sanity and madness? Keep reading!
+Are you horrified? Maybe you are wondering whether I've cross the blurry line between sanity and madness? Keep reading! [Try it!](https://serras.github.io/hinc/index.html)
 
 ## No top-level matching on definitions
 

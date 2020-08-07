@@ -73,6 +73,27 @@ argPPat = f <$> argP
     f (nm, Nothing) = Hs.PVar () nm
     f (nm, Just ty) = Hs.PatTypeSig () (Hs.PVar () nm) ty
 
+basicExprP :: Parser (Hs.Exp ())
+basicExprP =   try (parens exprP)
+           <|> Hs.Var () <$> qnameP varP
+           <|> Hs.Con () <$> qnameP litP
+
+exprWithArgsP :: Parser (Hs.Exp ())
+exprWithArgsP = foldl (Hs.App ())
+                     <$> basicExprP
+                     <*> (fromMaybe [] <$> optional (parens (exprP `sepBy` comma)))
+
+
+dottedExprP :: Parser (Hs.Exp ())
+dottedExprP = f . reverse <$> dottedExprP'
+  where
+    f [x]    = x
+    f (x:xs) = Hs.App () x (f xs)
+    dottedExprP' :: Parser [Hs.Exp ()]
+    dottedExprP' = (:) <$> exprWithArgsP
+                       <*> (try (dot *> dottedExprP')
+                           <|> pure [])
+
 exprP :: Parser (Hs.Exp ())
 exprP =   Hs.If () <$ symbol "if" <*> parens exprP
                    <*> exprP <* symbol "else" <*> exprP
@@ -84,8 +105,7 @@ exprP =   Hs.If () <$ symbol "if" <*> parens exprP
                             <*  arrow
                             <*> exprP)
       <|> Hs.Lit () <$> literalP
-      <|> Hs.Var () <$> qnameP varP
-      <|> Hs.Con () <$> qnameP litP
+      <|> dottedExprP
 
 stmtP :: Parser (Hs.Stmt ())
 stmtP =   try (Hs.Generator () <$  symbol "let"
