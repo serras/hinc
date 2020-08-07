@@ -89,7 +89,7 @@ let mapM<a, b, m>(f: (a) => b, lst: List<a>): List<b>
 
 In addition, `hinc` drops some of the built-in types in Haskell, leaving only `=>` as special syntax. So one writes `List<Int>` for `[Int]`, `Tuple<Int, Bool>` for `(Int, Bool)`, and `Equals<Int, Bool>` for `Int ~ Bool`.
 
-### Signatures and definitions are intertwined
+### Intertwined signatures and definitions
 
 One of the outstanding characteristics of Haskell code is that type signatures are written _separately_ from their definitions. For example, `mapM` would be written as follows:
 
