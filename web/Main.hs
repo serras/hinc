@@ -4,6 +4,7 @@
 
 module Main where
 
+import           Data.List                    (intercalate)
 import           Hinc.Parser
 import           Language.Haskell.Exts.Pretty (Pretty, prettyPrint)
 import           Miso
@@ -23,7 +24,12 @@ main = startApp App {..}
     logLevel = Off
 
 initialCode = unlines [
-    "let f(xs: List<Int>, p: (Int) => Bool): List<a>"
+    "data Maybe<a> {"
+  , "  Nothing,"
+  , "  Just(value: a)"
+  , "} : Show, Eq"
+  , ""
+  , "let f(xs: List<Int>, p: (Int) => Bool): List<a>"
   , "  = effect {"
   , "      let x = await xs"
   , "      guard(p(x))"
@@ -46,9 +52,9 @@ updateModel (ChangeCurrentText t) m
   = noEff (m { currentText = t })
 updateModel Translate m
   = let s = fromMisoString $ currentText m
-    in case map prettyPrint <$> Text.Megaparsec.parse letBindP "test" s of
+    in case map prettyPrint <$> Text.Megaparsec.parse declsP "test" s of
       Left  e -> noEff (m { translated = toMisoString (show e) })
-      Right s -> noEff (m { translated = toMisoString (unlines s) })
+      Right s -> noEff (m { translated = toMisoString (intercalate "\n\n" s) })
 
 
 -- | Constructs a virtual DOM from a model

@@ -185,7 +185,7 @@ bindsP :: Parser (Hs.Binds ())
 bindsP = Hs.BDecls () <$> declsP
 
 declsP :: Parser [Hs.Decl ()]
-declsP = concat <$> some letBindP
+declsP = concat <$> some (letBindP <|> ((:[]) <$> dataDeclP))
 
 letBindP :: Parser [Hs.Decl ()]
 letBindP = putTogether <$  symbol "let"
@@ -219,6 +219,51 @@ letBindP = putTogether <$  symbol "let"
     recreateTy2 (Nothing : as) r = Hs.TyFun () (Hs.TyWildCard () Nothing) (recreateTy2 as r)
     recreateTy2 (Just a  : as) r = Hs.TyFun () a (recreateTy2 as r)
 
+dataOrNewP :: Parser (Hs.DataOrNew ())
+dataOrNewP =   Hs.DataType () <$ symbol "data"
+           <|> Hs.NewType  () <$ symbol "newtype"
+
+dataDeclP :: Parser (Hs.Decl ())
+dataDeclP = buildDataDecl <$> dataOrNewP
+                          <*> litP
+                          <*> (fromMaybe [] <$> optional (angles (tyvarbindP `sepBy` comma)))
+                          <*> optional (colon *> typeP)
+                          <*> braces (constructorDeclP `sepBy` comma)
+                          <*> (fromMaybe [] <$> optional (colon >> typeP `sepBy` comma))
+  where
+    buildDataDecl :: Hs.DataOrNew ()
+                  -> Hs.Name ()
+                  -> [Hs.TyVarBind ()]
+                  -> Maybe (Hs.Type ())
+                  -> [Hs.Type () -> Hs.GadtDecl ()]
+                  -> [Hs.Type ()]
+                  -> Hs.Decl ()
+    buildDataDecl new tyname tyargs kind cons derivs  -- TODO deriving
+      = let orig = foldl (\h n -> Hs.TyApp () h (Hs.TyVar () (varKindName n)))
+                         (Hs.TyCon () (Hs.UnQual () tyname)) tyargs
+        in Hs.GDataDecl () new Nothing
+                        (foldl (Hs.DHApp ()) (Hs.DHead () tyname) tyargs)
+                        kind
+                        (map ($ orig) cons)
+                        [Hs.Deriving () Nothing
+                            (map (Hs.IRule () Nothing Nothing . typeToDeriving) derivs)]
+
+    varKindName (Hs.KindedVar _ nm _) = nm
+    varKindName (Hs.UnkindedVar _ nm) = nm
+
+    typeToDeriving :: Hs.Type () -> Hs.InstHead ()
+    typeToDeriving (Hs.TyApp _ t a) = Hs.IHApp () (typeToDeriving t) a
+    typeToDeriving (Hs.TyCon _ nm)  = Hs.IHCon () nm
+
+constructorDeclP :: Parser (Hs.Type () -> Hs.GadtDecl ())
+constructorDeclP = (\nm vars flds ty ctx orig -> Hs.GadtDecl () nm vars ctx flds (ty orig))
+                                  <$> litP
+                                  <*> optional (angles (tyvarbindP `sepBy` comma))
+                                  <*> optional (parens (gadtArgP `sepBy` comma))
+                                  <*> (fromMaybe id <$> optional (const <$ colon <*> typeP))
+                                  <*> optional contextP
+  where gadtArgP :: Parser (Hs.FieldDecl ())
+        gadtArgP = Hs.FieldDecl () <$> some varP <* colon <*> typeP
 
 -- MODULES
 -- =======
