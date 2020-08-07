@@ -83,6 +83,8 @@ viewModel Model { currentText, translated }
            , a_ [ href_ "https://twitter.com/trupill" ] [ text "@trupill" ]
            , text " using "
            , a_ [ href_ "https://haskell-miso.org/" ] [ text "Miso 🍲" ]
+           , text " and hosted in "
+           , a_ [ href_ "https://github.com/serras/hinc" ] [ text "GitHub" ]
            ]
     , link_ [ rel_ "stylesheet"
             , href_ "https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" ]

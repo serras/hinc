@@ -16,7 +16,7 @@ let mapM(f: (a) => m<b>, lst: List<a>): m<List<b>> where m : Effect
     }
 ```
 
-Are you horrified? Maybe you are wondering whether I've cross the blurry line between sanity and madness? Keep reading! [Try it!](https://serras.github.io/hinc/index.html)
+Are you horrified? Maybe you are wondering whether I've cross the blurry line between sanity and madness? Keep reading! [Try it!](https://serras.github.io/hinc/)
 
 Of course, I am not the first one to try this. [BuckleScript](https://bucklescript.github.io/) and [Reason](https://reasonml.github.io/) provide a JavaScript-like syntax for OCaml, another important functional language. Note however that their goal is also to compile to JavaScript, whereas in Haskell world we are well-served by GHCJS.
 
