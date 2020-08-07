@@ -18,6 +18,8 @@ let mapM(f: (a) => m<b>, lst: List<a>): m<List<b>> where m : Effect
 
 Are you horrified? Maybe you are wondering whether I've cross the blurry line between sanity and madness? Keep reading! [Try it!](https://serras.github.io/hinc/index.html)
 
+Of course, I am not the first one to try this. [BuckleScript](https://bucklescript.github.io/) and [Reason](https://reasonml.github.io/) provide a JavaScript-like syntax for OCaml, another important functional language. Note however that their goal is also to compile to JavaScript, whereas in Haskell world we are well-served by GHCJS.
+
 ## No top-level matching on definitions
 
 Haskellers would usually not use `case` when writing `mapM`, relying instead on the implicit top-level matching in definitions:
