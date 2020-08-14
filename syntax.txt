@@ -3,9 +3,10 @@ LEXICAL ELEMENTS
 
 var
   ::= variables (start with lowercase letter)
-
+    | operators not starting with :
 con
   ::= constants (start with uppercase letter)
+    | operators starting with :
 
 literal
   ::= number
@@ -28,6 +29,7 @@ expr
     | 'effect'? '{' stmt* '}'  # both pure and effectful
     | '[' expr* ']'
     | '(' arg* ')' '=>' expr
+    | expr op expr
     | literal
 
 basic-expr

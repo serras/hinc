@@ -3,6 +3,7 @@
 module Hinc.Parser where
 
 import           Control.Applicative          (Alternative)
+import           Data.Char                    (isPunctuation, isSymbol)
 import           Data.List                    (intercalate)
 import           Data.Maybe                   (fromMaybe)
 import qualified Data.Text                    as T
@@ -49,6 +50,17 @@ lower   = lowerChar <|> single '_'
 upper   = upperChar
 anyChar = alphaNumChar <|> single '_'
 
+signed :: (Num a)
+  => Parser ()              -- ^ How to consume white space after the sign
+  -> Parser a               -- ^ How to parse the number itself
+  -> Parser a               -- ^ Parser for signed numbers
+signed spc p = option id (L.lexeme spc sign) <*> p
+  where
+    sign = negate <$ single '-'
+
+punctuation :: Parser Char
+punctuation = satisfy (`elem` (":!|@#$%&/=?^+*,-_<>" :: String))
+
 optionalOrEmpty :: Alternative f => f [a] -> f [a]
 optionalOrEmpty p
   = fromMaybe [] <$> optional p
@@ -57,9 +69,23 @@ optionalOrEmpty p
 -- =====
 
 varP, litP, nameP :: Parser (Hs.Name ())
-varP = Hs.Ident () <$> lexeme ((:) <$> lower <*> many anyChar)
-litP = Hs.Ident () <$> lexeme ((:) <$> upper <*> many anyChar)
+varP
+  =   Hs.Ident () <$> lexeme ((:) <$> lower <*> many anyChar)
+  <|> Hs.Symbol ()
+        <$> lexeme ((:) <$> satisfy (`elem` ("!|@#$%&/=?^+*,-_<>" :: String))
+                        <*> many punctuation)
+litP
+  =   Hs.Ident ()  <$> lexeme ((:) <$> upper <*> many anyChar)
+  <|> Hs.Symbol () <$> lexeme ((:) <$> single ':' <*> many punctuation)
+
 nameP = varP <|> litP
+
+opvarP, oplitP, opnameP :: Parser (Hs.Name ())
+opvarP = Hs.Symbol ()
+           <$> lexeme ((:) <$> satisfy (\c -> c /= ':' && (isPunctuation c || isSymbol c))
+                           <*> many punctuation)
+oplitP = Hs.Symbol () <$> lexeme ((:) <$> single ':' <*> many punctuation)
+opnameP = opvarP <|> oplitP
 
 modNameP :: Parser (Hs.ModuleName ())
 modNameP
@@ -139,7 +165,7 @@ literalP =   lexeme ((\c -> Hs.Char () c ("'" <> [c] <> "'"))
          <|> lexeme ((\s -> Hs.String () s ("\"" <> s <> "\""))
                          <$ char '"' <*> manyTill L.charLiteral (char '"'))
          <|> lexeme ((\i -> Hs.Int () i (show i))
-                         <$> L.signed spaceConsumer (lexeme L.decimal))
+                         <$> signed spaceConsumer (lexeme L.decimal))
          -- <|> (\i -> Hs.Frac () i (show i))
          --      <$> L.signed spaceConsumer (lexeme L.float)
 
