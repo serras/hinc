@@ -1,0 +1,84 @@
+LEXICAL ELEMENTS
+----------------
+
+var
+  ::= variables (start with lowercase letter)
+
+con
+  ::= constants (start with uppercase letter)
+
+literal
+  ::= number
+    | 'a'
+    | "string"
+
+GENERAL
+-------
+
+arg, typedvar
+  ::= var
+    | var ':' type
+
+EXPRESSIONS
+-----------
+
+expr
+  ::= dotted-expr
+    | 'if' '(' expr ')' expr 'else' expr
+    | 'effect'? '{' stmt* '}'  # both pure and effectful
+    | '[' expr* ']'
+    | '(' arg* ')' '=>' expr
+    | literal
+
+basic-expr
+  ::= '(' expr ')'
+    | var
+    | con
+
+dotted-expr
+  ::= basic-expr ('(' expr* ')')? ('.' dotted-expr)?
+
+stmt
+  ::= let-decl
+    | 'let' var '=' ('await' | 'do') expr
+    | expr
+
+TYPES
+-----
+
+type
+  ::= '(' type* ')' '=>' type
+    | '(' type ':' type ')'
+    | '<' typedvar* '>' type context?
+    | tyhead '<' type* '>'
+
+tyhead
+  ::= var
+    | con
+    | '_'
+
+context
+  ::= 'where' type
+    | 'where' '(' type* ')'
+
+
+DECLARATIONS
+------------
+
+decl
+  ::= let-decl
+    | data-decl
+
+let-decl
+  ::= 'let' var ('<' typedvar* '>')?
+            ('(' arg* ')')? (':' type)? context?
+            '=' expr
+
+data-decl
+  ::= ('data' | 'newtype') con ('<' typedvar* '>')? (':' type)?
+        '{' constructor* '}'
+        (':' type*)?
+
+constructor
+  ::= con ('<' typedvar* '>')? ('(' arg* ')')?
+          (':' type)? context?
